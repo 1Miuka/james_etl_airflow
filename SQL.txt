@@ -1,0 +1,75 @@
+-- CRIACAO DAS TABELAS
+CREATE TABLE airflow_etl.tabela_dados_financeiros (
+    data DATE NOT NULL,
+    dia_semana VARCHAR(20),
+    identificador VARCHAR(50),
+    empresa VARCHAR(100),
+    abertura FLOAT,
+    fechamento FLOAT,
+    variacao FLOAT,
+    minimo FLOAT,
+    maximo FLOAT,
+    volume FLOAT,
+    PRIMARY KEY (data, identificador, empresa)
+);
+
+CREATE TABLE airflow_etl.dim_data (
+    data_id SERIAL PRIMARY KEY,
+    data DATE UNIQUE NOT NULL,
+    dia_semana VARCHAR(20)
+);
+
+CREATE TABLE airflow_etl.dim_empresa (
+    empresa_id SERIAL PRIMARY KEY,
+    nome_empresa VARCHAR(100) UNIQUE NOT NULL
+);
+
+CREATE TABLE airflow_etl.dim_identificador (
+    identificador_id SERIAL PRIMARY KEY,
+    identificador VARCHAR(50) UNIQUE NOT NULL
+);
+
+CREATE TABLE airflow_etl.fatos_dados_financeiros (
+    data_id INT NOT NULL,
+    empresa_id INT NOT NULL,
+    identificador_id INT NOT NULL,
+    abertura FLOAT,
+    fechamento FLOAT,
+    variacao FLOAT,
+    minimo FLOAT,
+    maximo FLOAT,
+    volume FLOAT,
+    PRIMARY KEY (data_id, empresa_id, identificador_id),
+    FOREIGN KEY (data_id) REFERENCES airflow_etl.dim_data(data_id),
+    FOREIGN KEY (empresa_id) REFERENCES airflow_etl.dim_empresa(empresa_id),
+    FOREIGN KEY (identificador_id) REFERENCES airflow_etl.dim_identificador(identificador_id)
+);
+
+
+-- Consulta para listar todos os dados da tabela de fatos
+SELECT * FROM airflow_etl.fatos_dados_financeiros;
+
+-- Consulta para somar o volume de transações por dia:
+SELECT d.data, SUM(f.volume) AS total_volume
+FROM airflow_etl.fatos_dados_financeiros f
+JOIN airflow_etl.dim_data d ON f.data_id = d.data_id
+GROUP BY d.data
+ORDER BY d.data;
+
+-- Consulta para obter a média de fechamento por empresa
+SELECT e.nome_empresa, AVG(f.fechamento) AS media_fechamento
+FROM airflow_etl.fatos_dados_financeiros f
+JOIN airflow_etl.dim_empresa e ON f.empresa_id = e.empresa_id
+GROUP BY e.nome_empresa;
+
+-- Consulta para filtrar dados de um mês específico
+SELECT d.data, f.abertura, f.fechamento
+FROM airflow_etl.fatos_dados_financeiros f
+JOIN airflow_etl.dim_data d ON f.data_id = d.data_id
+WHERE d.data BETWEEN '2020-01-01' AND '2023-01-31';
+
+--Consulta para comparar abertura e fechamento por dia da semana:
+SELECT d.dia_semana, AVG(f.abertura) AS media_abertura, AVG(f.fechamento) AS media_fechamento
+FROM airflow_etl.fatos_dados_financeiros f
+JOIN airflow_etl.dim_data d ON f.data_id = d.data_id
+GROUP BY d.dia_semana;
